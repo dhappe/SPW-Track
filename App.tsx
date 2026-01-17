@@ -14,7 +14,11 @@ import {
   Upload,
   Trash2,
   Menu,
-  X
+  X,
+  LogOut,
+  Lock,
+  Mail,
+  User as UserIcon
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -32,22 +36,46 @@ import { MOCK_LEADERS, INITIAL_KAIS, INITIAL_KPIS } from './constants';
 import { AICoach } from './components/AICoach';
 
 function App() {
+  // Auth State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authView, setAuthView] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [authData, setAuthData] = useState({ name: '', email: '', password: '' });
+
+  // App State
   const [currentView, setCurrentView] = useState<AppView>(AppView.DASHBOARD);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // States
   const [leaders, setLeaders] = useState<TeamLeader[]>(MOCK_LEADERS);
   const [globalKais, setGlobalKais] = useState<KAI[]>(INITIAL_KAIS);
   const [globalKpis, setGlobalKpis] = useState<KPI[]>(INITIAL_KPIS);
-  
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [settingsTab, setSettingsTab] = useState<'LEADERS' | 'METRICS'>('LEADERS');
   
-  // Refs for file inputs
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
-  // --- Logic ---
+  // --- Auth Logic ---
+
+  const handleAuthSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authData.email && authData.password) {
+       if (authView === 'REGISTER' && !authData.name) {
+           alert("Por favor, insira seu nome.");
+           return;
+       }
+       // Simulating login
+       setIsAuthenticated(true);
+    } else {
+        alert("Por favor, preencha todos os campos.");
+    }
+  };
+
+  const handleLogout = () => {
+      setIsAuthenticated(false);
+      setAuthData({ name: '', email: '', password: '' });
+      setCurrentView(AppView.DASHBOARD);
+  };
+
+  // --- App Logic ---
 
   const calculateEfficiency = (leaderKais: KAI[]): number => {
     const total = leaderKais.length;
@@ -86,16 +114,11 @@ function App() {
     };
     setLeaders([...leaders, newLeader]);
     
-    // If in settings, stay there, otherwise go to details
-    if (currentView === AppView.SETTINGS) {
-        // Just added to list
-    } else {
+    if (currentView !== AppView.SETTINGS) {
         setSelectedLeaderId(newId);
         setCurrentView(AppView.TL_DETAILS);
     }
   };
-
-  // --- Settings Logic (Leaders) ---
 
   const handleUpdateLeaderInfo = (id: string, field: keyof TeamLeader, value: string) => {
     setLeaders(prev => prev.map(l => l.id === id ? { ...l, [field]: value } : l));
@@ -118,28 +141,16 @@ function App() {
     }
   };
 
-  // --- Settings Logic (Metrics) ---
-
   const syncMetricsToLeaders = (newGlobalKais: KAI[], newGlobalKpis: KPI[]) => {
     setLeaders(prevLeaders => prevLeaders.map(leader => {
-        // Sync KAIs: Keep status of existing ones, add new ones, remove deleted ones
         const updatedKais = newGlobalKais.map(gKai => {
             const existing = leader.kais.find(lk => lk.id === gKai.id);
-            return {
-                ...gKai,
-                isDone: existing ? existing.isDone : false
-            };
+            return { ...gKai, isDone: existing ? existing.isDone : false };
         });
-
-        // Sync KPIs: Keep actuals of existing ones, update targets/names
         const updatedKpis = newGlobalKpis.map(gKpi => {
             const existing = leader.kpis.find(lp => lp.id === gKpi.id);
-            return {
-                ...gKpi,
-                actual: existing ? existing.actual : 0
-            };
+            return { ...gKpi, actual: existing ? existing.actual : 0 };
         });
-
         return {
             ...leader,
             kais: updatedKais,
@@ -149,7 +160,6 @@ function App() {
     }));
   };
 
-  // Add/Update/Delete KAI Global
   const handleAddGlobalKai = () => {
     const newKai: KAI = { id: `k-${Date.now()}`, category: 'Safety', description: 'Nova Tarefa Padrão', isDone: false };
     const updated = [...globalKais, newKai];
@@ -169,7 +179,6 @@ function App() {
     syncMetricsToLeaders(updated, globalKpis);
   };
 
-  // Add/Update/Delete KPI Global
   const handleAddGlobalKpi = () => {
     const newKpi: KPI = { id: `p-${Date.now()}`, name: 'Novo Indicador', target: 0, actual: 0, unit: '#' };
     const updated = [...globalKpis, newKpi];
@@ -188,9 +197,6 @@ function App() {
     setGlobalKpis(updated);
     syncMetricsToLeaders(globalKais, updated);
   };
-
-
-  // --- Derived State ---
 
   const filteredLeaders = useMemo(() => {
     return leaders.filter(l => 
@@ -214,9 +220,103 @@ function App() {
     setIsMobileMenuOpen(false);
   };
 
+  const renderAuth = () => (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 font-sans">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-fadeIn">
+        <div className="bg-blue-700 p-8 text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+          <div className="bg-white/10 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm border border-white/20 relative z-10">
+            <Factory className="text-white w-10 h-10" />
+          </div>
+          <h1 className="text-2xl font-bold text-white tracking-tight relative z-10">SPW Leader Track</h1>
+          <p className="text-blue-100 mt-2 text-sm relative z-10">Portal de Supervisão e Performance</p>
+        </div>
+        
+        <div className="p-8">
+            <div className="flex justify-center mb-8 border-b border-slate-700">
+                <button 
+                    onClick={() => setAuthView('LOGIN')}
+                    className={`pb-2 px-4 text-sm font-medium transition-colors relative ${authView === 'LOGIN' ? 'text-blue-500' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                    Login
+                    {authView === 'LOGIN' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500"></div>}
+                </button>
+                <button 
+                    onClick={() => setAuthView('REGISTER')}
+                    className={`pb-2 px-4 text-sm font-medium transition-colors relative ${authView === 'REGISTER' ? 'text-blue-500' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                    Cadastro
+                    {authView === 'REGISTER' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500"></div>}
+                </button>
+            </div>
+
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+                {authView === 'REGISTER' && (
+                    <div className="animate-fadeIn">
+                        <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Nome Completo</label>
+                        <div className="relative">
+                            <UserIcon className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <input 
+                                type="text" 
+                                required={authView === 'REGISTER'}
+                                value={authData.name}
+                                onChange={e => setAuthData({...authData, name: e.target.value})}
+                                className="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-white placeholder-slate-500"
+                                placeholder="Seu nome"
+                            />
+                        </div>
+                    </div>
+                )}
+                
+                <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Email Corporativo</label>
+                    <div className="relative">
+                        <Mail className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input 
+                            type="email" 
+                            required
+                            value={authData.email}
+                            onChange={e => setAuthData({...authData, email: e.target.value})}
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-white placeholder-slate-500"
+                            placeholder="seu.email@empresa.com"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Senha</label>
+                    <div className="relative">
+                        <Lock className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input 
+                            type="password" 
+                            required
+                            value={authData.password}
+                            onChange={e => setAuthData({...authData, password: e.target.value})}
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-white placeholder-slate-500"
+                            placeholder="••••••••"
+                        />
+                    </div>
+                </div>
+
+                <button 
+                    type="submit"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all transform active:scale-[0.98] mt-6 flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
+                >
+                    {authView === 'LOGIN' ? 'Entrar no Sistema' : 'Criar Conta'}
+                    <ChevronRight className="w-4 h-4" />
+                </button>
+            </form>
+            
+             <p className="text-center text-xs text-slate-500 mt-6">
+                © {new Date().getFullYear()} SPW Leader Track v1.0
+            </p>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderSidebar = () => (
     <>
-      {/* Mobile Backdrop */}
       {isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm"
@@ -235,13 +335,12 @@ function App() {
                 <p className="text-xs text-slate-500">Supervisor Portal</p>
             </div>
             </div>
-            {/* Close Button Mobile */}
             <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-400 hover:text-white">
                 <X className="w-6 h-6" />
             </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
             <button 
             onClick={() => handleNavClick(AppView.DASHBOARD)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${currentView === AppView.DASHBOARD ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'hover:bg-slate-800 hover:text-white'}`}
@@ -267,22 +366,30 @@ function App() {
             </div>
         </nav>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-slate-800 space-y-4">
             <div className="bg-slate-800 rounded-xl p-4">
-            <p className="text-xs text-slate-400 mb-1">Média de Eficiência</p>
-            <div className="flex items-end gap-2">
-                <span className={`text-2xl font-bold ${globalEfficiency >= 80 ? 'text-green-400' : 'text-orange-400'}`}>
-                {globalEfficiency}%
-                </span>
-                <span className="text-xs text-slate-500 mb-1">Total Plant</span>
+                <p className="text-xs text-slate-400 mb-1">Média de Eficiência</p>
+                <div className="flex items-end gap-2">
+                    <span className={`text-2xl font-bold ${globalEfficiency >= 80 ? 'text-green-400' : 'text-orange-400'}`}>
+                    {globalEfficiency}%
+                    </span>
+                    <span className="text-xs text-slate-500 mb-1">Total Plant</span>
+                </div>
+                <div className="w-full bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
+                    <div 
+                    className={`h-full rounded-full ${globalEfficiency >= 80 ? 'bg-green-500' : 'bg-orange-500'}`} 
+                    style={{ width: `${globalEfficiency}%` }}
+                    ></div>
+                </div>
             </div>
-            <div className="w-full bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div 
-                className={`h-full rounded-full ${globalEfficiency >= 80 ? 'bg-green-500' : 'bg-orange-500'}`} 
-                style={{ width: `${globalEfficiency}%` }}
-                ></div>
-            </div>
-            </div>
+            
+            <button 
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800/50 transition-all text-sm font-medium"
+            >
+                <LogOut className="w-4 h-4" />
+                Sair do Sistema
+            </button>
         </div>
       </aside>
     </>
@@ -307,7 +414,7 @@ function App() {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0 mb-6 md:mb-8">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Visão Geral</h2>
-          <p className="text-slate-500 text-sm md:text-base">Acompanhamento de rotinas e indicadores</p>
+          <p className="text-slate-500 text-sm md:text-base">Bem-vindo, {authData.name || 'Supervisor'}</p>
         </div>
         <button 
           onClick={handleAddLeader}
@@ -819,6 +926,12 @@ function App() {
             </div>
         </div>
     )
+  }
+
+  // --- Main Render ---
+
+  if (!isAuthenticated) {
+      return renderAuth();
   }
 
   return (
